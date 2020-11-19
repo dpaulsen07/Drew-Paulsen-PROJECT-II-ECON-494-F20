@@ -1,0 +1,252 @@
+########################
+## DREW'S NBA DATASET ##
+########################
+
+#INTRODUCTION - Getting the data
+
+#Data obtained from Basketball Reference
+#Website URL: https://www.basketball-reference.com/leagues/NBA_stats_per_game.html
+#Copy & paste data into excel spreadsheet
+#Remove rows with repetitive column headers
+#Arrange column "Rk" by descending order. Then, delete data in column Rk
+#Enter "1" in column Rk for most recent season, "2" for the season prior, and then autofill the rest down.
+#Arrange column Rk by descending order once more
+#Save as Comma Separated Values (.csv)
+#Once file is saved as CSV, find location of CSV and use "read.csv()" function. Store data in variable name (of your choice)
+
+MyData <- read.csv("/Users/dpaulsen/Downloads/ECON494Data2.csv")
+
+#To view the data as a table, use View() function
+
+View(MyData)
+
+#Now data is ready to be tidied up!
+
+################
+# DATA TIDYING #
+################
+
+#N/As already given in data - not necessary to clean
+
+#Column Names messed up - Changing names to columns
+#Column 11 - "X3P" > change to "x3P"
+names(MyData)[names(MyData) == "X3P"] <- "x3P"
+
+#Column 12 - "X3PA" > change to "x3PA"
+names(MyData)[names(MyData) == "X3PA"] <- "x3PA"
+
+#Column 24 - "FG." > change to "FGp"
+names(MyData)[names(MyData) == "FG."] <- "FGp"
+
+#Column 25 - "X3P." > change to "x3Pp"
+names(MyData)[names(MyData) == "X3P."] <- "x3Pp"
+
+#Column 26 - "FT." > change to "FTp"
+names(MyData)[names(MyData) == "FT."] <- "FTp"
+
+#Column 28 - "eFG." > change to "eFGp"
+names(MyData)[names(MyData) == "eFG."] <- "eFGp"
+
+#Column 29 - "TOV." > change to "TOVp"
+names(MyData)[names(MyData) == "TOV."] <- "TOVp"
+
+#Column 30 - "ORB." > change to "ORBp"
+names(MyData)[names(MyData) == "ORB."] <- "ORBp"
+
+#For my analysis, I did not care to include columns 3-6.
+#I didn't feel they added anything more to my analysis.
+#Deleting columns 3-6 from the dataframe:
+
+df <- MyData[-c(3:6)]
+
+#I also found that I wanted ORtg to be present in all my observations
+#This meant shrinking the data set to only include observations from the '73-'74 season onwards.
+
+df <- df[-c(48:74), ]
+
+#I also wanted to add two new columns to my dataset, as I would be using them for my models.
+df$eFGp2<-df$eFGp^2
+df$eFGp3<-df$eFGp^3
+
+#Final, tidy dataset for Project 2:
+View(df)
+
+#Should end with 47 obs. and 28 variables in df.
+
+#############################
+# TRAINING AND TESTING DATA #
+#############################
+
+#Load ggplot2
+library(ggplot2)
+
+#Sizing the training data up
+p <- .7 #Training fraction
+Observations <-dim(df)[1] #Total number of observations
+TrainingSize <- floor(p * Observations) #Rounds training data down to a whole number
+
+#Shuffling the training and testing data
+set.seed(123) #to make sure my process is repeatable with the same shuffle
+TrainingShuffle <- sample(Observations, size = TrainingSize)
+TrainingData <- df[TrainingShuffle, ] #Pulls random rows for training
+TestingData <- df[-TrainingShuffle, ] #Pulls random rows for testing
+
+#Checking the dimensions of training and testing data
+dim(TrainingData)
+dim(TestingData)
+
+#Visuals of training + testing partitions
+plot(ORtg ~ eFGp, df)
+plot(ORtg ~ eFGp, TrainingData, col ='blue')
+plot(ORtg ~ eFGp, TestingData, col ='red', pch=4)
+points(TrainingData$eFGp, TrainingData$ORtg, col='blue')
+points(TestingData$eFGp, TestingData$ORtg, col='red', pch=4)
+
+##################
+# MODEL BUILDING #
+##################
+
+#Models 1-4 each have a section dedicated to them
+
+###########
+# MODEL 1 #
+###########
+M1 <- lm(ORtg ~ eFGp, TrainingData)
+summary(M1)
+
+#Training Data in sample prediction
+IS_pred1 <- predict(M1, TrainingData)
+View(IS_pred1)
+View(M1$fitted.values)
+hist(M1$residuals)
+
+#Predicting out of sample with test data
+OS_pred1 <- predict(M1, TestingData)
+
+#Computing in & out of sample RMSE
+IS_RMSE1<-sqrt(sum((IS_pred1-TrainingData$ORtg)^2)/length(IS_pred1))
+OS_RMSE1<-sqrt(sum((OS_pred1-TestingData$ORtg)^2)/length(OS_pred1))
+
+#In sample and out of sample errors
+IS_RMSE1
+OS_RMSE1
+
+#Plotting Model 1
+x_grid <- seq(.45,.53,.001)
+Predictions <- predict(M1, list(eFGp=x_grid))
+plot(TrainingData$ORtg ~ TrainingData$eFGp, col='blue')
+lines(x_grid, Predictions, col='purple', lwd=2)
+points(TestingData$ORtg ~ TestingData$eFGp, col='red', pch=4)
+
+###########
+# MODEL 2 #
+###########
+
+#Model 2 adds the squared form of eFGp to the model
+
+M2 <- lm(ORtg ~ eFGp + eFGp2, TrainingData)
+summary(M2)
+
+#Training Data in sample prediction
+IS_pred2 <- predict(M2, TrainingData)
+View(IS_pred2)
+View(M2$fitted.values)
+hist(M2$residuals)
+
+#Predicting out of sample with test data
+OS_pred2 <- predict(M2, TestingData)
+
+#Computing in & out of sample RMSE
+IS_RMSE2<-sqrt(sum((IS_pred2-TrainingData$ORtg)^2)/length(IS_pred2))
+OS_RMSE2<-sqrt(sum((OS_pred2-TestingData$ORtg)^2)/length(OS_pred2))
+
+#In sample and out of sample errors
+IS_RMSE2
+OS_RMSE2
+
+#Plotting Model 2
+x_grid <- seq(.45,.53,.001)
+Predictions <- predict(M2, list(eFGp=x_grid, eFGp2=x_grid^2))
+plot(TrainingData$ORtg ~ TrainingData$eFGp, col='blue')
+lines(x_grid, Predictions, col='purple', lwd=2)
+points(TestingData$ORtg ~ TestingData$eFGp, col='red', pch=4)
+
+###########
+# MODEL 3 #
+###########
+
+#Model 3 adds the cubic form of eFGp to the model
+
+M3 <- lm(ORtg ~ eFGp + eFGp2 + eFGp3, TrainingData)
+summary(M3)
+
+#Training Data in sample prediction
+IS_pred3 <- predict(M3, TrainingData)
+View(IS_pred3)
+View(M3$fitted.values)
+hist(M3$residuals)
+
+#Predicting out of sample with test data
+OS_pred3 <- predict(M3, TestingData)
+
+#Computing in & out of sample RMSE
+IS_RMSE3<-sqrt(sum((IS_pred3-TrainingData$ORtg)^2)/length(IS_pred3))
+OS_RMSE3<-sqrt(sum((OS_pred3-TestingData$ORtg)^2)/length(OS_pred3))
+
+#In sample and out of sample errors
+IS_RMSE3
+OS_RMSE3
+
+#Plotting Model 3
+x_grid <- seq(.45,.53,.001)
+Predictions <- predict(M3, list(eFGp=x_grid, eFGp2=x_grid^2, eFGp3=x_grid^3))
+plot(TrainingData$ORtg ~ TrainingData$eFGp, col='blue')
+lines(x_grid, Predictions, col='purple', lwd=2)
+points(TestingData$ORtg ~ TestingData$eFGp, col='red', pch=4)
+
+###########
+# MODEL 4 #
+###########
+
+#Model 4 adds TOVp to the model
+
+M4 <- lm(ORtg ~ eFGp + eFGp2 + eFGp3 + TOVp, TrainingData)
+summary(M4)
+
+#Training Data in sample prediction
+IS_pred4 <- predict(M4, TrainingData)
+View(IS_pred4)
+View(M4$fitted.values)
+hist(M4$residuals)
+
+#Predicting out of sample with test data
+OS_pred4 <- predict(M4, TestingData)
+
+#Computing in & out of sample RMSE
+IS_RMSE4<-sqrt(sum((IS_pred4-TrainingData$ORtg)^2)/length(IS_pred4))
+OS_RMSE4<-sqrt(sum((OS_pred4-TestingData$ORtg)^2)/length(OS_pred4))
+
+#In sample and out of sample errors
+IS_RMSE4
+OS_RMSE4
+
+#Plotting Model 4
+ggplot(M4,aes(y=ORtg,x=eFGp,color=TOVp))+geom_point()+stat_smooth(method="lm",se=FALSE)
+
+####################
+# MODEL COMPARISON #
+####################
+
+#Best fit?
+IS_RMSE1
+IS_RMSE2
+IS_RMSE3
+IS_RMSE4
+
+#Best predictor?
+OS_RMSE1
+OS_RMSE2
+OS_RMSE3
+OS_RMSE4
+
+
